@@ -1,5 +1,6 @@
 ﻿using CursorLibrary.Exceptions;
 using CursorLibrary.Models;
+using CursorLibrary.SD;
 using CursorLibrary.Utilities;
 using System;
 using System.Runtime.InteropServices;
@@ -27,6 +28,10 @@ namespace CursorLibrary.Controllers
         public event EventHandler<MouseInfoModel>? OnMouseMoved;
         public event EventHandler<MouseInfoModel>? OnLeftMouseClicked;
         public event EventHandler<MouseInfoModel>? OnRightMouseClicked;
+
+        public event EventHandler<MouseInfoModel>? OnMousePulledUp;
+        public event EventHandler<MouseInfoModel>? OnMousePulledDown; 
+ 
         public event EventHandler? OnKeyPressed; 
 
         //mouse
@@ -48,8 +53,8 @@ namespace CursorLibrary.Controllers
         /// <summary>
         /// Set cursor position on screen
         /// </summary>
-        /// <param name="x">X</param>
-        /// <param name="y">Y</param>
+        /// <param name="x">X screen position</param>
+        /// <param name="y">Y screen position</param>
         /// <returns>
         /// result code:
         /// 1 - operation was completed successfully.
@@ -83,28 +88,46 @@ namespace CursorLibrary.Controllers
         }
 
         /// <summary>
-        /// Simulate left click 
+        /// Simulate mouse pull up 
         /// </summary>
+        /// <param name="mouseType">left or right mouse</param>
         /// <returns>
         /// result code:
         /// 1 - operation was completed successfully.
         /// 0 - an error was occured. 
         /// </returns>
-        public async Task<int> SimulateLeftMouseClick()
+        public async Task<int> SimulateMousePullUp(MouseType mouseType)
         {
             await Task.Delay(100);
+
             try
             {
                 lock (_lockObject)
                 {
-                    mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, nuint.Zero);
-                    mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, nuint.Zero);
+                    switch (mouseType)
+                    {
+                        case MouseType.LEFTMOUSE:
+                            {
+                                mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+                                Logger.AddLog("Left mouse pull up was simulated");
 
-                    Logger.AddLog("Left mouse was simulated!");
+                                InfoModel.MouseType = mouseType;
 
-                    OnLeftMouseClicked?.Invoke(this, InfoModel);
+                                OnMousePulledUp?.Invoke(this, InfoModel);
+                                break;
+                            }
+                        case MouseType.RIGHTMOUSE:
+                            {
+                                mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, UIntPtr.Zero);
+                                Logger.AddLog("Right mouse pull up was simulated");
+
+                                InfoModel.MouseType = mouseType;
+
+                                OnMousePulledUp?.Invoke(this, InfoModel);
+                                break;
+                            }
+                    }
                 }
-                return 1;
             }
             catch (CursorApiException ex)
             {
@@ -113,31 +136,102 @@ namespace CursorLibrary.Controllers
 
                 return 0;
             }
+
+            return 1;
         }
 
         /// <summary>
-        /// Simulate right click 
+        /// Simulate mouse pull down 
         /// </summary>
+        /// <param name="mouseType">left or right mouse</param>
         /// <returns>
         /// result code:
         /// 1 - operation was completed successfully.
         /// 0 - an error was occured. 
         /// </returns>
-        public async Task<int> SimulateRightMouseClick()
+        public async Task<int> SimulateMousePullDown(MouseType mouseType)
         {
             await Task.Delay(100);
+
             try
             {
                 lock (_lockObject)
                 {
-                    mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, nuint.Zero);
-                    mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, nuint.Zero);
-
-                    Logger.AddLog("Right mouse was simulated!"); 
-
-                    OnRightMouseClicked?.Invoke(this, InfoModel);
+                    switch (mouseType)
+                    {
+                        case MouseType.LEFTMOUSE:
+                            {
+                                mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
+                                Logger.AddLog("Left mouse pull down was simulated");
+                                break;
+                            }
+                        case MouseType.RIGHTMOUSE:
+                            {
+                                mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, UIntPtr.Zero);
+                                Logger.AddLog("Right mouse pull down was simulated"); 
+                                break;
+                            }
+                    }
                 }
-                return 1;
+            }
+            catch (CursorApiException ex)
+            {
+                Console.WriteLine($"Exception: {ex.Message}");
+                Logger.AddLog(ex.ToString());
+
+                return 0;
+            }
+
+            return 1;
+        }
+
+        /// <summary>
+        /// Simulate mouse click on screen 
+        /// </summary>
+        /// <param name="mouseType">left or right mouse click</param>
+        /// <returns>
+        /// result code:
+        /// 1 - operation was completed successfully.
+        /// 0 - an error was occured. 
+        /// </returns>
+        public async Task<int> SimulateMouseClick(MouseType mouseType)
+        {
+            await Task.Delay(100);
+
+            try
+            {
+                lock (_lockObject)
+                {
+                    switch (mouseType)
+                    {
+                        case MouseType.LEFTMOUSE:
+                            {
+                                mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, nuint.Zero);
+                                mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, nuint.Zero);
+
+                                Logger.AddLog("Left mouse was simulated!");
+                                InfoModel.MouseType = mouseType;
+
+                                OnLeftMouseClicked?.Invoke(this, InfoModel);
+
+                                break;
+                            }
+
+                        case MouseType.RIGHTMOUSE:
+                            {
+                                mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, nuint.Zero);
+                                mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, nuint.Zero);
+
+                                Logger.AddLog("Right mouse was simulated!");
+                                InfoModel.MouseType = mouseType;
+
+                                OnRightMouseClicked?.Invoke(this, InfoModel);
+                                break;
+                            }
+                    }
+
+                    return 1;
+                }
             }
             catch (CursorApiException ex)
             {
