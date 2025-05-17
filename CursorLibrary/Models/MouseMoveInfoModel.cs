@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace CursorLibrary.Models
 {
-    public class MouseInfoModel
+    public class MouseInfoModel : EventArgs
     {
         public int PositionX { get; set; } = 0;
         public int PositionY { get; set; } = 0; 

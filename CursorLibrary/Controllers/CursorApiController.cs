@@ -3,14 +3,16 @@ using CursorLibrary.Models;
 using CursorLibrary.SD;
 using CursorLibrary.Utilities;
 using System;
+using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace CursorLibrary.Controllers
 {
     /// <summary>
-    /// Main class - api controller 
-    /// Attention: this class keeps logs, logs can be found in the global "Logger" class  
+    /// Основний клас - контролер API 
+    /// Увага: цей клас веде журнали, які можна знайти в глобальному класі "Logger"  
     /// </summary>
     public class CursorApiController
     {
@@ -23,259 +25,284 @@ namespace CursorLibrary.Controllers
         [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, nuint dwExtraInfo);
 
-        private readonly object _lockObject = new();
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT
+        {
+            public int X;
+            public int Y;
+        }
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetCursorPos(out POINT lpPoint);
+
+        private readonly SemaphoreSlim _semaphore = new(1, 1);
 
         public event EventHandler<MouseInfoModel>? OnMouseMoved;
         public event EventHandler<MouseInfoModel>? OnLeftMouseClicked;
         public event EventHandler<MouseInfoModel>? OnRightMouseClicked;
 
         public event EventHandler<MouseInfoModel>? OnMousePulledUp;
-        public event EventHandler<MouseInfoModel>? OnMousePulledDown; 
- 
-        public event EventHandler? OnKeyPressed; 
+        public event EventHandler<MouseInfoModel>? OnMousePulledDown;
 
-        //mouse
+        public event EventHandler? OnKeyPressed;
+
+        // Миша
         private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
         private const uint MOUSEEVENTF_LEFTUP = 0x0004;
         private const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
         private const uint MOUSEEVENTF_RIGHTUP = 0x0010;
 
-        //keyboard 
-        const uint KEYEVENTF_KEYUP = 0x0002;
+        // Клавіатура 
+        private const uint KEYEVENTF_KEYUP = 0x0002;
 
         private static CursorApiController? _instance;
         public static CursorApiController Default => _instance ??= new CursorApiController();
 
-        private static MouseInfoModel InfoModel = new(); 
-
         private CursorApiController() { }
 
+        private static MouseInfoModel GetCurrentMouseInfo()
+        {
+            var model = new MouseInfoModel();
+            if (GetCursorPos(out POINT point))
+            {
+                model.PositionX = point.X;
+                model.PositionY = point.Y;
+            }
+            return model;
+        }
+
         /// <summary>
-        /// Set cursor position on screen
+        /// Встановити позицію курсора на екрані
         /// </summary>
-        /// <param name="x">X screen position</param>
-        /// <param name="y">Y screen position</param>
+        /// <param name="x">X позиція на екрані</param>
+        /// <param name="y">Y позиція на екрані</param>
         /// <returns>
-        /// result code:
-        /// 1 - operation was completed successfully.
-        /// 0 - an error was occured. 
+        /// Код результату:
+        /// 1 - операція успішно завершена.
+        /// 0 - сталася помилка. 
         /// </returns>
         public async Task<int> SetCursorPosition(int x, int y)
         {
-            await Task.Delay(100);
             try
             {
-                lock (_lockObject)
+                await _semaphore.WaitAsync();
+                try
                 {
-                    SetCursorPos(x, y);
+                    var result = SetCursorPos(x, y);
+                    if (!result)
+                        throw new CursorApiException("Помилка SetCursorPos.", new Exception());
 
-                    InfoModel.PositionX = x;
-                    InfoModel.PositionY = y;
+                    var infoModel = GetCurrentMouseInfo();
+                    infoModel.PositionX = x;
+                    infoModel.PositionY = y;
 
-                    Logger.AddLog($"Mouse moved: X:{x}, Y:{y}"); 
+                    Logger.AddLog($"Курсор переміщено: X:{x}, Y:{y}");
 
-                    OnMouseMoved?.Invoke(this, InfoModel);
+                    OnMouseMoved?.Invoke(this, infoModel);
+                    return 1;
                 }
-                return 1;
+                finally
+                {
+                    _semaphore.Release();
+                }
             }
             catch (CursorApiException ex)
             {
-                Console.WriteLine($"Exception: {ex.Message}");
-                Logger.AddLog(ex.ToString()); 
-
+                Console.WriteLine($"Виняток: {ex.Message}");
+                Logger.AddLog(ex.ToString());
                 return 0;
             }
         }
 
         /// <summary>
-        /// Simulate mouse pull up 
+        /// Симуляція відпускання кнопки миші 
         /// </summary>
-        /// <param name="mouseType">left or right mouse</param>
+        /// <param name="mouseType">Ліва або права кнопка миші</param>
         /// <returns>
-        /// result code:
-        /// 1 - operation was completed successfully.
-        /// 0 - an error was occured. 
+        /// Код результату:
+        /// 1 - операція успішно завершена.
+        /// 0 - сталася помилка. 
         /// </returns>
         public async Task<int> SimulateMousePullUp(MouseType mouseType)
         {
-            await Task.Delay(100);
-
             try
             {
-                lock (_lockObject)
+                await _semaphore.WaitAsync();
+                try
                 {
+                    var infoModel = GetCurrentMouseInfo();
+                    infoModel.MouseType = mouseType;
+
                     switch (mouseType)
                     {
                         case MouseType.LEFTMOUSE:
                             {
                                 mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
-                                Logger.AddLog("Left mouse pull up was simulated");
-
-                                InfoModel.MouseType = mouseType;
-
-                                OnMousePulledUp?.Invoke(this, InfoModel);
+                                Logger.AddLog("Симуляція відпускання лівої кнопки миші");
+                                OnMousePulledUp?.Invoke(this, infoModel);
                                 break;
                             }
                         case MouseType.RIGHTMOUSE:
                             {
                                 mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, UIntPtr.Zero);
-                                Logger.AddLog("Right mouse pull up was simulated");
-
-                                InfoModel.MouseType = mouseType;
-
-                                OnMousePulledUp?.Invoke(this, InfoModel);
+                                Logger.AddLog("Симуляція відпускання правої кнопки миші");
+                                OnMousePulledUp?.Invoke(this, infoModel);
                                 break;
                             }
                     }
+                    return 1;
+                }
+                finally
+                {
+                    _semaphore.Release();
                 }
             }
             catch (CursorApiException ex)
             {
-                Console.WriteLine($"Exception: {ex.Message}");
+                Console.WriteLine($"Виняток: {ex.Message}");
                 Logger.AddLog(ex.ToString());
-
                 return 0;
             }
-
-            return 1;
         }
 
         /// <summary>
-        /// Simulate mouse pull down 
+        /// Симуляція натискання кнопки миші 
         /// </summary>
-        /// <param name="mouseType">left or right mouse</param>
+        /// <param name="mouseType">Ліва або права кнопка миші</param>
         /// <returns>
-        /// result code:
-        /// 1 - operation was completed successfully.
-        /// 0 - an error was occured. 
+        /// Код результату:
+        /// 1 - операція успішно завершена.
+        /// 0 - сталася помилка. 
         /// </returns>
         public async Task<int> SimulateMousePullDown(MouseType mouseType)
         {
-            await Task.Delay(100);
-
             try
             {
-                lock (_lockObject)
+                await _semaphore.WaitAsync();
+                try
                 {
+                    var infoModel = GetCurrentMouseInfo();
+                    infoModel.MouseType = mouseType;
+
                     switch (mouseType)
                     {
                         case MouseType.LEFTMOUSE:
                             {
                                 mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
-                                Logger.AddLog("Left mouse pull down was simulated");
+                                Logger.AddLog("Симуляція натискання лівої кнопки миші");
+                                OnMousePulledDown?.Invoke(this, infoModel);
                                 break;
                             }
                         case MouseType.RIGHTMOUSE:
                             {
                                 mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, UIntPtr.Zero);
-                                Logger.AddLog("Right mouse pull down was simulated"); 
+                                Logger.AddLog("Симуляція натискання правої кнопки миші");
+                                OnMousePulledDown?.Invoke(this, infoModel);
                                 break;
                             }
                     }
+                    return 1;
+                }
+                finally
+                {
+                    _semaphore.Release();
                 }
             }
             catch (CursorApiException ex)
             {
-                Console.WriteLine($"Exception: {ex.Message}");
+                Console.WriteLine($"Виняток: {ex.Message}");
                 Logger.AddLog(ex.ToString());
-
                 return 0;
             }
-
-            return 1;
         }
 
         /// <summary>
-        /// Simulate mouse click on screen 
+        /// Симуляція кліку миші на екрані 
         /// </summary>
-        /// <param name="mouseType">left or right mouse click</param>
+        /// <param name="mouseType">Ліва або права кнопка миші</param>
         /// <returns>
-        /// result code:
-        /// 1 - operation was completed successfully.
-        /// 0 - an error was occured. 
+        /// Код результату:
+        /// 1 - операція успішно завершена.
+        /// 0 - сталася помилка. 
         /// </returns>
         public async Task<int> SimulateMouseClick(MouseType mouseType)
         {
-            await Task.Delay(100);
-
             try
             {
-                lock (_lockObject)
+                await _semaphore.WaitAsync();
+                try
                 {
+                    var infoModel = GetCurrentMouseInfo();
+                    infoModel.MouseType = mouseType;
+
                     switch (mouseType)
                     {
                         case MouseType.LEFTMOUSE:
                             {
                                 mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, nuint.Zero);
                                 mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, nuint.Zero);
-
-                                Logger.AddLog("Left mouse was simulated!");
-                                InfoModel.MouseType = mouseType;
-
-                                OnLeftMouseClicked?.Invoke(this, InfoModel);
-
+                                Logger.AddLog("Симуляція кліку лівої кнопки миші");
+                                OnLeftMouseClicked?.Invoke(this, infoModel);
                                 break;
                             }
-
                         case MouseType.RIGHTMOUSE:
                             {
                                 mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, nuint.Zero);
                                 mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, nuint.Zero);
-
-                                Logger.AddLog("Right mouse was simulated!");
-                                InfoModel.MouseType = mouseType;
-
-                                OnRightMouseClicked?.Invoke(this, InfoModel);
+                                Logger.AddLog("Симуляція кліку правої кнопки миші");
+                                OnRightMouseClicked?.Invoke(this, infoModel);
                                 break;
                             }
                     }
-
                     return 1;
+                }
+                finally
+                {
+                    _semaphore.Release();
                 }
             }
             catch (CursorApiException ex)
             {
-                Console.WriteLine($"Exception: {ex.Message}");
+                Console.WriteLine($"Виняток: {ex.Message}");
                 Logger.AddLog(ex.ToString());
-
                 return 0;
             }
         }
 
         /// <summary>
-        /// Simulate keyboard key  
+        /// Симуляція натискання клавіші клавіатури  
         /// </summary>
-        /// <param name="keyCode">key code, you can find in class KeyboardKeys</param>
+        /// <param name="keyCode">Код клавіші, можна знайти в класі KeyboardKeys</param>
         /// <returns>
-        /// result code:
-        /// 1 - operation was completed successfully.
-        /// 0 - an error was occured. 
+        /// Код результату:
+        /// 1 - операція успішно завершена.
+        /// 0 - сталася помилка. 
         /// </returns>
         public async Task<int> SimulateKeyPressing(byte keyCode)
         {
-            await Task.Delay(100); 
-
             try
             {
-                lock (_lockObject)
+                await _semaphore.WaitAsync();
+                try
                 {
                     keybd_event(keyCode, 0, 0, nuint.Zero);
                     keybd_event(keyCode, 0, KEYEVENTF_KEYUP, nuint.Zero);
-
-                    Logger.AddLog($"Key was simulated!: Key {keyCode}"); 
-
+                    Logger.AddLog($"Симуляція натискання клавіші: Клавіша {keyCode}");
                     OnKeyPressed?.Invoke(this, EventArgs.Empty);
+                    return 1;
+                }
+                finally
+                {
+                    _semaphore.Release();
                 }
             }
-            catch(CursorApiException ex)
+            catch (CursorApiException ex)
             {
-                Console.WriteLine($"Exception: {ex.Message}");
-                Logger.AddLog(ex.ToString()); 
-
-                return 0; 
+                Console.WriteLine($"Виняток: {ex.Message}");
+                Logger.AddLog(ex.ToString());
+                return 0;
             }
-
-            return 1; 
         }
     }
 }
