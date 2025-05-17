@@ -8,8 +8,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <Reference Include="CursorLibrary">
-	    <HintPath>C:\Users\максим\Desktop\допоміжні проги\допоміжні бібліотеки\Миха-бібліотека\v3\CursorLibrary.dll</HintPath>
-	  </Reference>
+	  <ProjectReference Include="..\CursorLibrary\CursorLibrary.csproj" />
 	</ItemGroup>
 </Project>
