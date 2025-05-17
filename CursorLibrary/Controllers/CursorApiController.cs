@@ -11,8 +11,8 @@ using System.Threading.Tasks;
 namespace CursorLibrary.Controllers
 {
     /// <summary>
-    /// Основний клас - контролер API 
-    /// Увага: цей клас веде журнали, які можна знайти в глобальному класі "Logger"  
+    /// Основний клас - контролер API для роботи з мишею
+    /// Увага: цей клас веде журнали, які можна знайти в глобальному класі "Logger"
     /// </summary>
     public class CursorApiController
     {
@@ -21,9 +21,6 @@ namespace CursorLibrary.Controllers
 
         [DllImport("user32.dll")]
         private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, nuint dwExtraInfo);
-
-        [DllImport("user32.dll")]
-        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, nuint dwExtraInfo);
 
         [StructLayout(LayoutKind.Sequential)]
         public struct POINT
@@ -41,20 +38,14 @@ namespace CursorLibrary.Controllers
         public event EventHandler<MouseInfoModel>? OnMouseMoved;
         public event EventHandler<MouseInfoModel>? OnLeftMouseClicked;
         public event EventHandler<MouseInfoModel>? OnRightMouseClicked;
-
         public event EventHandler<MouseInfoModel>? OnMousePulledUp;
         public event EventHandler<MouseInfoModel>? OnMousePulledDown;
-
-        public event EventHandler? OnKeyPressed;
 
         // Миша
         private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
         private const uint MOUSEEVENTF_LEFTUP = 0x0004;
         private const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
         private const uint MOUSEEVENTF_RIGHTUP = 0x0010;
-
-        // Клавіатура 
-        private const uint KEYEVENTF_KEYUP = 0x0002;
 
         private static CursorApiController? _instance;
         public static CursorApiController Default => _instance ??= new CursorApiController();
@@ -80,7 +71,7 @@ namespace CursorLibrary.Controllers
         /// <returns>
         /// Код результату:
         /// 1 - операція успішно завершена.
-        /// 0 - сталася помилка. 
+        /// 0 - сталася помилка.
         /// </returns>
         public async Task<int> SetCursorPosition(int x, int y)
         {
@@ -116,13 +107,13 @@ namespace CursorLibrary.Controllers
         }
 
         /// <summary>
-        /// Симуляція відпускання кнопки миші 
+        /// Симуляція відпускання кнопки миші
         /// </summary>
         /// <param name="mouseType">Ліва або права кнопка миші</param>
         /// <returns>
         /// Код результату:
         /// 1 - операція успішно завершена.
-        /// 0 - сталася помилка. 
+        /// 0 - сталася помилка.
         /// </returns>
         public async Task<int> SimulateMousePullUp(MouseType mouseType)
         {
@@ -167,13 +158,13 @@ namespace CursorLibrary.Controllers
         }
 
         /// <summary>
-        /// Симуляція натискання кнопки миші 
+        /// Симуляція натискання кнопки миші
         /// </summary>
         /// <param name="mouseType">Ліва або права кнопка миші</param>
         /// <returns>
         /// Код результату:
         /// 1 - операція успішно завершена.
-        /// 0 - сталася помилка. 
+        /// 0 - сталася помилка.
         /// </returns>
         public async Task<int> SimulateMousePullDown(MouseType mouseType)
         {
@@ -218,13 +209,13 @@ namespace CursorLibrary.Controllers
         }
 
         /// <summary>
-        /// Симуляція кліку миші на екрані 
+        /// Симуляція кліку миші на екрані
         /// </summary>
         /// <param name="mouseType">Ліва або права кнопка миші</param>
         /// <returns>
         /// Код результату:
         /// 1 - операція успішно завершена.
-        /// 0 - сталася помилка. 
+        /// 0 - сталася помилка.
         /// </returns>
         public async Task<int> SimulateMouseClick(MouseType mouseType)
         {
@@ -255,41 +246,6 @@ namespace CursorLibrary.Controllers
                                 break;
                             }
                     }
-                    return 1;
-                }
-                finally
-                {
-                    _semaphore.Release();
-                }
-            }
-            catch (CursorApiException ex)
-            {
-                Console.WriteLine($"Виняток: {ex.Message}");
-                Logger.AddLog(ex.ToString());
-                return 0;
-            }
-        }
-
-        /// <summary>
-        /// Симуляція натискання клавіші клавіатури  
-        /// </summary>
-        /// <param name="keyCode">Код клавіші, можна знайти в класі KeyboardKeys</param>
-        /// <returns>
-        /// Код результату:
-        /// 1 - операція успішно завершена.
-        /// 0 - сталася помилка. 
-        /// </returns>
-        public async Task<int> SimulateKeyPressing(byte keyCode)
-        {
-            try
-            {
-                await _semaphore.WaitAsync();
-                try
-                {
-                    keybd_event(keyCode, 0, 0, nuint.Zero);
-                    keybd_event(keyCode, 0, KEYEVENTF_KEYUP, nuint.Zero);
-                    Logger.AddLog($"Симуляція натискання клавіші: Клавіша {keyCode}");
-                    OnKeyPressed?.Invoke(this, EventArgs.Empty);
                     return 1;
                 }
                 finally
