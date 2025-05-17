@@ -23,7 +23,7 @@ namespace CursorLibrary.Controllers
         private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, nuint dwExtraInfo);
 
         [StructLayout(LayoutKind.Sequential)]
-        public struct POINT
+        private struct POINT
         {
             public int X;
             public int Y;
