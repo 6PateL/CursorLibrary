@@ -62,6 +62,6 @@ class Program
     private static void CurrentDomain_ProcessExit(object? sender, EventArgs e)
     {
         Console.WriteLine("Логи збережено");
-        Logger.ExportLogs("C:\\Users\\максим\\Desktop"); 
+        Logger.ExportLogs("your-path-here"); 
     }
 }
