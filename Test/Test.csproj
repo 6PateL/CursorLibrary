@@ -9,8 +9,7 @@
 
 	<ItemGroup>
 	  <Reference Include="CursorLibrary">
-	    <HintPath>C:\Users\максим\Desktop\допоміжні проги\допоміжні бібліотеки\Миха-бібліотека\v2\CursorLibrary.dll</HintPath>
+	    <HintPath>C:\Users\максим\Desktop\допоміжні проги\допоміжні бібліотеки\Миха-бібліотека\v3\CursorLibrary.dll</HintPath>
 	  </Reference>
 	</ItemGroup>
-
 </Project>
