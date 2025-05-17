@@ -1,8 +1,3 @@
----
-
-
----
-
 <h1 id="cursorlibrary">CursorLibrary</h1>
 <p>A C# library for simulating mouse and keyboard actions on Windows. It enables programmatic control over the cursor (movement, clicks, button press/release) and keyboard key presses. Ideal for automation, UI testing, or building tools to interact with the operating system.</p>
 <h2 id="features">Features</h2>
